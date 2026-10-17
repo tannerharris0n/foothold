@@ -37,21 +37,37 @@ How you work:
 - You return only the JSON you were asked for, with no prose before or after it.`;
 
 /**
- * Ask the model for a JSON document. We ask for raw JSON and tolerate a fenced
- * code block, then parse. Retries once on a parse failure with the error fed back.
+ * Ask the model for a JSON document. The model is forced to call an `emit`
+ * tool whose input is the document, so the API validates the JSON for us and
+ * we never parse prose. If the reply is cut off by max_tokens we say so
+ * instead of returning a half document.
  */
 export async function askJSON<T>(user: string, opts?: { system?: string; maxTokens?: number }): Promise<T> {
   const anthropic = getClient();
   const system = opts?.system ?? OPERATOR_SYSTEM;
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: user }];
+  const tool: Anthropic.Tool = {
+    name: "emit",
+    description: "Return the requested JSON document as this tool's input, matching the shape described in the request exactly.",
+    input_schema: { type: "object", properties: {}, additionalProperties: true },
+  };
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: opts?.maxTokens ?? 4000,
+      max_tokens: opts?.maxTokens ?? 8000,
       system,
       messages,
+      tools: [tool],
+      tool_choice: { type: "tool", name: "emit" },
     });
+    if (res.stop_reason === "max_tokens") {
+      throw new Error("The model's reply was cut off by the token limit. Raise maxTokens for this call.");
+    }
+    const call = res.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+    if (call && call.input && typeof call.input === "object") return call.input as T;
+
+    // Very rare: the model answered in text despite tool_choice. Try to parse it, then retry once.
     const text = res.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
@@ -60,23 +76,21 @@ export async function askJSON<T>(user: string, opts?: { system?: string; maxToke
       return parseJSON<T>(text);
     } catch (e) {
       if (attempt === 1) throw new Error(`Model returned invalid JSON: ${(e as Error).message}`);
-      messages.push({ role: "assistant", content: text });
-      messages.push({
-        role: "user",
-        content: `That was not valid JSON (${(e as Error).message}). Return only the JSON document, nothing else.`,
-      });
+      messages.push({ role: "assistant", content: res.content });
+      messages.push({ role: "user", content: "Call the emit tool with the JSON document as its input." });
     }
   }
   throw new Error("unreachable");
 }
 
+/** Lenient parse for the text fallback: fenced block, surrounding prose, trailing commas. */
 export function parseJSON<T>(text: string): T {
   let t = text.trim();
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) t = fence[1].trim();
-  // Trim anything before the first brace/bracket and after the last.
   const start = Math.min(...["{", "["].map((c) => (t.indexOf(c) === -1 ? Infinity : t.indexOf(c))));
   const end = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]"));
   if (start === Infinity || end === -1) throw new Error("no JSON object found");
-  return JSON.parse(t.slice(start, end + 1)) as T;
+  const body = t.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1");
+  return JSON.parse(body) as T;
 }
