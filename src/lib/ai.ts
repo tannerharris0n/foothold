@@ -37,53 +37,43 @@ How you work:
 - You return only the JSON you were asked for, with no prose before or after it.`;
 
 /**
- * Ask the model for a JSON document. The model is forced to call an `emit`
- * tool whose input is the document, so the API validates the JSON for us and
- * we never parse prose. If the reply is cut off by max_tokens we say so
- * instead of returning a half document.
+ * Ask the model for a JSON document that matches `schema`. The schema goes in
+ * output_config.format so the API constrains generation to the shape and the
+ * text block is guaranteed to parse. We still run a lenient parse as a belt
+ * and braces, and surface a clear error if the reply hit the token limit.
  */
-export async function askJSON<T>(user: string, opts?: { system?: string; maxTokens?: number }): Promise<T> {
+export async function askJSON<T>(
+  user: string,
+  schema: Record<string, unknown>,
+  opts?: { system?: string; maxTokens?: number },
+): Promise<T> {
   const anthropic = getClient();
-  const system = opts?.system ?? OPERATOR_SYSTEM;
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: user }];
-  const tool: Anthropic.Tool = {
-    name: "emit",
-    description: "Return the requested JSON document as this tool's input, matching the shape described in the request exactly.",
-    input_schema: { type: "object", properties: {}, additionalProperties: true },
-  };
+  const res = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: opts?.maxTokens ?? 8000,
+    system: opts?.system ?? OPERATOR_SYSTEM,
+    messages: [{ role: "user", content: user }],
+    output_config: { format: { type: "json_schema", schema } },
+  });
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: opts?.maxTokens ?? 8000,
-      system,
-      messages,
-      tools: [tool],
-      tool_choice: { type: "tool", name: "emit" },
-    });
-    if (res.stop_reason === "max_tokens") {
-      throw new Error("The model's reply was cut off by the token limit. Raise maxTokens for this call.");
-    }
-    const call = res.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-    if (call && call.input && typeof call.input === "object") return call.input as T;
-
-    // Very rare: the model answered in text despite tool_choice. Try to parse it, then retry once.
-    const text = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n");
-    try {
-      return parseJSON<T>(text);
-    } catch (e) {
-      if (attempt === 1) throw new Error(`Model returned invalid JSON: ${(e as Error).message}`);
-      messages.push({ role: "assistant", content: res.content });
-      messages.push({ role: "user", content: "Call the emit tool with the JSON document as its input." });
-    }
+  if (res.stop_reason === "max_tokens") {
+    throw new Error("The model's reply was cut off by the token limit. Raise maxTokens for this call.");
   }
-  throw new Error("unreachable");
+  if (res.stop_reason === "refusal") {
+    throw new Error("The model declined to produce this document.");
+  }
+  const text = res.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  try {
+    return parseJSON<T>(text);
+  } catch (e) {
+    throw new Error(`Model returned invalid JSON: ${(e as Error).message}`);
+  }
 }
 
-/** Lenient parse for the text fallback: fenced block, surrounding prose, trailing commas. */
+/** Lenient parse: fenced block, surrounding prose, trailing commas. */
 export function parseJSON<T>(text: string): T {
   let t = text.trim();
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);

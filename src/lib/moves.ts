@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { askJSON } from "./ai";
 import { playbooksForStage } from "./playbooks";
+import { MOVES_SCHEMA } from "./schemas";
 import { listen, subredditNames } from "./reddit";
 import { getStore } from "./store";
 import type { Audience, Audit, Move, MoveType, Product, RedditThread } from "./types";
@@ -113,7 +114,7 @@ ${threadBlock}
 
 Return JSON: { "moves": [ { "playbookId": "...", "type": "...", "channel": "...", "title": "imperative, under 12 words", "why": "one sentence tying it to the audit, a thread, or a result", "draft": "the complete content, ready to paste: the full reply or post text, the exact copy change with before/after, the DM text, or the step list for a setup move", "targetUrl": "thread or page URL when relevant", "effortMinutes": 5-45 } ] }
 Exactly ${count} moves. At least one must be a reply to a real thread above if any thread is a genuine fit; never reply to a thread that is not a fit just to hit the quota. Total effort under 75 minutes. Drafts must read like a peer wrote them.`,
-    { maxTokens: 8000 },
+    MOVES_SCHEMA,
   );
 
   const valid = new Set(playbooks.map((p) => p.id));
