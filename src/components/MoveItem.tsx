@@ -3,6 +3,20 @@
 import { useState } from "react";
 import type { Move, MoveStatus } from "@/lib/types";
 
+/**
+ * Drafts should arrive with newlines, but when a model packs a numbered list
+ * into one paragraph, split it back out so it reads on a phone.
+ */
+export function formatDraft(text: string): string {
+  const t = text.replace(/\r\n/g, "\n").trim();
+  const lines = t.split("\n").length;
+  if (lines >= 3 || t.length < 240) return t;
+  return t
+    .replace(/\s+(?=\d{1,2}\.\s)/g, "\n\n") // " 2. " -> new paragraph
+    .replace(/\s+(?=(Before|After|Subject|Done when)\s*:)/gi, "\n\n")
+    .replace(/^\n+/, "");
+}
+
 const STATUS_LABEL: Record<MoveStatus, string> = {
   pending: "To do",
   approved: "Approved",
@@ -21,7 +35,7 @@ export function MoveItem({
 }) {
   const [open, setOpen] = useState(move.status === "pending" && index === 0);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(move.draft);
+  const [draft, setDraft] = useState(formatDraft(move.draft));
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -117,7 +131,7 @@ export function MoveItem({
                   type="button"
                   className="btn btn-quiet"
                   onClick={() => {
-                    setDraft(move.draft);
+                    setDraft(formatDraft(move.draft));
                     setEditing(false);
                   }}
                 >

@@ -113,7 +113,14 @@ Fresh threads found in the last week where the pain is being discussed:
 ${threadBlock}
 
 Return JSON: { "moves": [ { "playbookId": "...", "type": "...", "channel": "...", "title": "imperative, under 12 words", "why": "one sentence tying it to the audit, a thread, or a result", "draft": "the complete content, ready to paste: the full reply or post text, the exact copy change with before/after, the DM text, or the step list for a setup move", "targetUrl": "thread or page URL when relevant", "effortMinutes": 5-45 } ] }
-Exactly ${count} moves. At least one must be a reply to a real thread above if any thread is a genuine fit; never reply to a thread that is not a fit just to hit the quota. Total effort under 75 minutes. Drafts must read like a peer wrote them.`,
+Exactly ${count} moves. At least one must be a reply to a real thread above if any thread is a genuine fit; never reply to a thread that is not a fit just to hit the quota. Total effort under 75 minutes. Drafts must read like a peer wrote them.
+
+Formatting rules for every draft, these matter because the founder reads them on a phone:
+- Use real newline characters. Separate paragraphs with a blank line.
+- For setup and fix moves: a numbered list, one step per line, at most 6 steps, each step one sentence. Put the "done when" test on its own last line.
+- For replies and posts: short paragraphs of 1 to 3 sentences, no numbered lists unless the platform norm calls for one.
+- For before/after copy changes: "Before:" on its own line, the old text, a blank line, "After:" on its own line, the new text.
+- No sentence longer than 25 words.`,
     MOVES_SCHEMA,
   );
 
