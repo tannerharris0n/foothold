@@ -7,7 +7,13 @@ function getClient() {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not set. Add it to .env.local to run live audits and daily moves.");
   }
-  if (!client) client = new Anthropic();
+  if (!client) {
+    // Keys that are not scoped to a workspace must name one on every request.
+    const workspace = process.env.ANTHROPIC_WORKSPACE_ID;
+    client = new Anthropic({
+      defaultHeaders: workspace ? { "anthropic-workspace-id": workspace } : undefined,
+    });
+  }
   return client;
 }
 
