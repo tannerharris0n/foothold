@@ -47,7 +47,7 @@ Return JSON with this exact shape:
   "score": 0-100
 }
 Give 5 to 9 findings, ordered by severity. The score is how ready this funnel is to convert cold organic traffic; most pre-traction pages land between 35 and 65.`,
-    { maxTokens: 4000 },
+    { maxTokens: 8000 },
   );
 
   return {
@@ -76,7 +76,7 @@ Return JSON:
   "bannedPhrases": [ "words this audience reads as marketing" ]
 }
 2 or 3 ICPs, 3 to 5 competitors, 8 to 12 communities with real names. Only name communities you are confident exist. Reddit names must be real subreddits.`,
-    { maxTokens: 4000 },
+    { maxTokens: 8000 },
   );
   return { ...out, productId: product.id, createdAt: new Date().toISOString() };
 }
@@ -93,7 +93,7 @@ Communities: ${audience.communities.slice(0, 6).map((c) => c.name).join(", ")}
 
 Return JSON: { "northStar": "one measurable sentence for day 30", "items": [ { "phase": "Week 1|Week 2|Week 3|Week 4", "title": "...", "detail": "one or two sentences, specific" } ] }
 8 to 12 items. Week 1 is fixes and instrumentation; weeks 2 to 4 are distribution and learning loops.`,
-    { maxTokens: 2500 },
+    { maxTokens: 8000 },
   );
   return {
     productId: product.id,
