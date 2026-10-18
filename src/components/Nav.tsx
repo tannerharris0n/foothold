@@ -19,6 +19,9 @@ export function Nav({ right }: { right?: React.ReactNode }) {
             <Link href="/#how" className="hidden text-slate hover:text-granite sm:inline">
               How it works
             </Link>
+            <Link href="/app" className="text-slate hover:text-granite">
+              Open app
+            </Link>
             <Link href="/start" className="btn btn-rope">
               Start with your URL
             </Link>

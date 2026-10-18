@@ -127,9 +127,14 @@ export function Dashboard({ productId }: { productId: string }) {
 
   return (
     <main className="flex-1">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5">
-        <Wordmark className="text-lg" />
-        <a href={product.url} target="_blank" rel="noreferrer" className="text-sm text-slate hover:text-granite">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <Wordmark className="text-lg" />
+          <Link href="/app" className="text-sm text-slate hover:text-granite">
+            All products
+          </Link>
+        </div>
+        <a href={product.url} target="_blank" rel="noreferrer" className="truncate text-sm text-slate hover:text-granite">
           {product.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
         </a>
       </header>
