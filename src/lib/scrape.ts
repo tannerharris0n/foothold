@@ -1,22 +1,50 @@
 import * as cheerio from "cheerio";
 import type { SiteSnapshot } from "./types";
 
-const UA = "Mozilla/5.0 (compatible; FootholdBot/0.1; +https://foothold.local)";
+const BOT_UA = "Mozilla/5.0 (compatible; FootholdBot/0.1; +https://foothold.local)";
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 
-async function fetchHtml(url: string, timeoutMs = 12000): Promise<string> {
+const BROWSER_HEADERS = {
+  accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "accept-language": "en-US,en;q=0.9",
+  "sec-fetch-dest": "document",
+  "sec-fetch-mode": "navigate",
+  "sec-fetch-site": "none",
+  "upgrade-insecure-requests": "1",
+};
+
+async function fetchOnce(url: string, ua: string, timeoutMs: number): Promise<Response> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
-      headers: { "user-agent": UA, accept: "text/html,*/*" },
+    return await fetch(url, {
+      headers: { ...BROWSER_HEADERS, "user-agent": ua },
       redirect: "follow",
       signal: ctl.signal,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
-    return await res.text();
   } finally {
     clearTimeout(t);
   }
+}
+
+/**
+ * Identify honestly first; if the site's bot shield refuses (403/406/429 or a
+ * challenge page), retry once looking like a browser. Many hosts block any
+ * unfamiliar UA by default and this is the founder's own site.
+ */
+async function fetchHtml(url: string, timeoutMs = 12000): Promise<string> {
+  let res = await fetchOnce(url, BOT_UA, timeoutMs);
+  if ([401, 403, 406, 429, 503].includes(res.status)) {
+    res = await fetchOnce(url, BROWSER_UA, timeoutMs);
+  }
+  if (!res.ok) {
+    throw new Error(
+      `HTTP ${res.status} fetching ${url}. The site is refusing automated requests. ` +
+        `Foothold will audit from what you told it instead; add a one-liner on the product so it has something to work with.`,
+    );
+  }
+  return await res.text();
 }
 
 export function normalizeUrl(input: string): string {
